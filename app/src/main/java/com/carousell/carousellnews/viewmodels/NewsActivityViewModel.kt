@@ -1,7 +1,5 @@
 package com.carousell.carousellnews.viewmodels
 
-import android.util.Log
-import androidx.compose.runtime.mutableStateListOf
 import androidx.lifecycle.ViewModel
 import androidx.lifecycle.viewModelScope
 import com.carousell.carousellnews.domain.models.NewsDataModel
@@ -13,7 +11,6 @@ import com.carousell.carousellnews.ui.NewsUiState
 import com.carousell.carousellnews.ui.SortByRank
 import com.carousell.carousellnews.ui.SortByTimeCreated
 import kotlinx.coroutines.flow.MutableStateFlow
-import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.launch
 
 class NewsActivityViewModel(
@@ -24,6 +21,8 @@ class NewsActivityViewModel(
 
     private val _uiState = MutableStateFlow<NewsState>(NewsUiState.InitialState)
     val uiState get() = _uiState
+
+    private var currentSortMode: NewsSortBy? = null
 
     fun setAction(action: NewsState) {
         when (action) {
@@ -37,17 +36,14 @@ class NewsActivityViewModel(
         }
     }
 
-    private fun sortData(sortBy: NewsSortBy) {
-        when (sortBy) {
-            is SortByRank -> {
-                _data.value.sortedWith(compareBy<NewsDataModel> { it.rank }.thenBy { it.timeCreated })
-                    .also { sortedData ->
-                        _data.tryEmit(sortedData)
-                    }
+    private fun sortData(sortedMode: NewsSortBy) {
+        when (sortedMode) {
+            is SortByTimeCreated -> {
+                sortRecent()
             }
 
-            is SortByTimeCreated -> {
-
+            is SortByRank -> {
+                sortPopular()
             }
         }
     }
@@ -56,7 +52,7 @@ class NewsActivityViewModel(
         googleApiRepository.fetchData(
             onSuccess = {
                 it?.let { resultData ->
-                    _data.tryEmit(resultData)
+                    sortRecent(resultData)
                     _uiState.tryEmit(NewsUiState.FetchComplete)
                 }
             },
@@ -64,5 +60,28 @@ class NewsActivityViewModel(
                 _uiState.tryEmit(NewsUiState.FetchFailed)
             }
         )
+    }
+
+    private fun sortRecent(dataParam: List<NewsDataModel>? = null) {
+        if (currentSortMode == SortByTimeCreated) return
+        if (dataParam.isNullOrEmpty()) {
+            _data.value.sortedByDescending { it.timeCreated }.also {
+                _data.tryEmit(it)
+            }
+        } else {
+            dataParam.sortedByDescending { it.timeCreated }.also {
+                _data.tryEmit(it)
+            }
+        }
+        currentSortMode = SortByTimeCreated
+    }
+
+    private fun sortPopular() {
+        if (currentSortMode == SortByRank) return
+        _data.value.sortedWith(compareBy<NewsDataModel> { it.rank }.thenByDescending { it.timeCreated })
+            .also {
+                _data.tryEmit(it)
+            }
+        currentSortMode = SortByRank
     }
 }

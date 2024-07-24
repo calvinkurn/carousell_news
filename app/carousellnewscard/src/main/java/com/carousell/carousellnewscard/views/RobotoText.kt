@@ -33,6 +33,6 @@ fun RobotoText(
 
 @Composable
 @Preview
-fun RobotoTextPreview() {
+private fun RobotoTextPreview() {
     RobotoText(text = "Test", fontWeight = FontWeight.Normal)
 }
